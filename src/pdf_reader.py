@@ -1,18 +1,18 @@
-from PyPDF2 import PdfReader
+# src/pdf_reader.py
+
+import fitz  # PyMuPDF
 
 def extract_text(pdf_path: str) -> str:
     """
-    从 PDF 文件中提取文本内容。
-
-    :param pdf_path: PDF 文件路径
-    :return: 提取出的文本字符串
+    使用 PyMuPDF 从 PDF 中提取文本。
+    对 macOS 生成的 PDF、中文/日文 PDF 的兼容性比 PyPDF2 更好。
     """
-    reader = PdfReader(pdf_path)
-    text = ""
+    text_parts: list[str] = []
 
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text += page_text + "\n"
+    # 打开 PDF
+    with fitz.open(pdf_path) as doc:
+        for page in doc:
+            # get_text() 会返回这一页的纯文本
+            text_parts.append(page.get_text())
 
-    return text
+    return "\n".join(text_parts)

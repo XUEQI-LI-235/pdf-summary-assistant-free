@@ -59,7 +59,7 @@ def summarize(text: str, max_sentences: int = 5) -> str:
 
 
 def main():
-    pdf_path = "sample.pdf"  # 确保项目根目录有这个文件
+    pdf_path = "sample2.pdf"  # 确保项目根目录有这个文件
     text = extract_text(pdf_path)
 
     if not text.strip():
