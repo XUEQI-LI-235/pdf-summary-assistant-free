@@ -68,6 +68,21 @@ def default_output_path(input_path: Path) -> Path:
     return Path("output") / f"{input_path.stem}.txt"
 
 
+def resolve_output_paths(out_arg: Path | None, input_path: Path) -> tuple[Path, Path]:
+    """
+    根据 -o 参数，返回 (raw_path, summary_path)
+    """
+    if out_arg is None:
+        out_dir = Path("output")
+    else:
+        if out_arg.exists() and out_arg.is_file():
+            raise ValueError("Output path must be a directory, not a file.")
+        out_dir = out_arg
+
+    raw_path = out_dir / f"{input_path.stem}_raw.txt"
+    summary_path = out_dir / f"{input_path.stem}_summary.txt"
+    return raw_path, summary_path
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -79,14 +94,26 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[ERROR] Input is not a .pdf file: {in_path}", file=sys.stderr)
         return EXIT_USAGE
 
-    out_path = Path(args.output) if args.output else default_output_path(in_path)
+    try:
+        out_arg = Path(args.output) if args.output else None
+        raw_path, summary_path = resolve_output_paths(out_arg, in_path)
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"[ERROR] Invalid output path\n{type(e).__name__}: {e}", file=sys.stderr)
+        return EXIT_USAGE
+
 
     # 确保输出目录存在
     try:
-        out_path.parent.mkdir(parents=True, exist_ok=True)
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
     except Exception as e:
-        print(f"[ERROR] Cannot create output directory: {out_path.parent}\n{type(e).__name__}: {e}", file=sys.stderr)
+        print(
+            "[ERROR] Invalid output path\n"
+            f"{type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
         return EXIT_USAGE
+
 
     try:
         if args.verbose:
@@ -99,18 +126,18 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_RUNTIME
 
         summary = summarize(text)
-
-        payload = (
-            "=== 原文前 200 字 ===\n"
-            f"{text[:200]}\n\n"
-            "=== 本地摘要（伪 AI，免费，无需网络） ===\n"
-            f"{summary}\n"
-        )
-
+        
+        try:
+            raw_path.write_text(text[:200], encoding="utf-8")
+            summary_path.write_text(summary, encoding="utf-8")
+        except Exception as e:
+            print(f"[ERROR] Failed to write output files\n{type(e).__name__}: {e}", file=sys.stderr)
+            return EXIT_RUNTIME
+        
         if args.verbose:
-            print(f"[INFO] Writing output to: {out_path}")
+            print(f"[INFO] Writing raw text to: {raw_path}")
+            print(f"[INFO] Writing summary to: {summary_path}")
 
-        out_path.write_text(payload, encoding="utf-8")
 
         if args.verbose:
             print("[INFO] Done.")
